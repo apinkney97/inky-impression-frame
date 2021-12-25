@@ -100,7 +100,8 @@ class FrameRunner:
                 self.next_photo(0)
 
     def _refresh_file_list(self):
-        self._files = sorted(self._show_dir.glob("*.jpg"))
+        # sort by modification time
+        self._files = sorted(self._show_dir.glob("*.jpg"), key=lambda p: p.stat().st_mtime)
 
     def take_photo(self, delay=2):
         print("Taking photo")
@@ -123,13 +124,14 @@ class FrameRunner:
         self._current_photo = show_path
         self.show_photo()
 
-    def show_photo(self, saturation=0.5):
+    def show_photo(self, saturation=0.75):
         print(f"Drawing photo {self._current_photo}")
+        start = time.monotonic()
         image = Image.open(self._current_photo)
         self._inky.set_image(image, saturation=saturation)
         self._inky.show()
         self._last_show = datetime.datetime.now()
-        print(f"Drawing finished")
+        print(f"Drawing finished, took {time.monotonic() - start:.2f} seconds")
 
     def next_photo(self, offset: int = 1):
         self._refresh_file_list()
@@ -172,7 +174,12 @@ async def button_loop(bm: ButtonManager, fr: FrameRunner):
 
     async for event in bm.get_events():
         if event.duration_secs > 60:
-            print(f"Ignoring event of {event.duration_secs:.2f} seconds")
+            print(f"Ignoring long button press ({int(event.duration_secs)} seconds)")
+            continue
+
+        event_age = time.monotonic() - event.end_time_monotonic
+        if event_age > 5:
+            print(f"Ignoring stale button press ({int(event_age)} seconds)")
             continue
 
         is_short = event.duration_secs < long_press_secs

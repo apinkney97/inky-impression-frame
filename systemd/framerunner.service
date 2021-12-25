@@ -1,0 +1,12 @@
+[Unit]
+Description=Photo Frame Runner
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -u /home/pi/framerunner/framerunner/main.py
+Restart=always
+User=pi
+
+[Install]
+WantedBy=multi-user.target
