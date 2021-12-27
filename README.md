@@ -26,7 +26,7 @@ the buttons are labelled A, B, C, D.
 - C: Delete the currently displayed image
 - D: Random photo
 
-#### Very long press - more thab 5 seconds:
+#### Very long press - more than 5 seconds:
 - A: [No action]
 - B: Shut down safely (it's safe to remove power once the green LED turns off)
 - C: Undelete all deleted camera photos
