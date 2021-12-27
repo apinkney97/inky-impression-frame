@@ -1,9 +1,14 @@
 # inky-impression-frame
 Project to mount a
 [Pimoroni Inky Impression](https://shop.pimoroni.com/products/inky-impression-5-7)
-inside a photo frame.
+display inside a photo frame.
 
 ## User Manual
+
+### Important note about unplugging the power
+You should not disconnect the power without safely shutting down the photo frame. To do this, you must hold the "photo" button (B, see below) for more than 5 seconds and then release it. The green LED will flash for a few seconds and then turn off. At this point it is safe to remove the power.
+
+If you do not follow this process, the SD card in the Raspberry Pi can become corrupted and the frame may stop working.
 
 ### Button Presses
 With the frame facing you in portrait orientation with the buttons at the bottom, from left to right
