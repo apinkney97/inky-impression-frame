@@ -1,13 +1,6 @@
 """
 Images must be 600 * 448 (landscape) or 448 * 600 (portrait)
 
-Buttons:
-    - Take photo
-    - Cycle next photo
-    - Cycle prev photo
-    - Remove current photo
-
-In general, should cycle 1 picture per N hours (N=12?)
 """
 import asyncio
 import datetime
@@ -16,7 +9,7 @@ import random
 import subprocess
 import time
 from pathlib import Path
-from typing import List
+from typing import Dict, List
 
 from inky import BLACK
 from inky.inky_uc8159 import Inky
@@ -32,6 +25,9 @@ class PatientInky(Inky):
         super()._busy_wait(timeout)
 
 
+SCREEN_RESOLUTION = (600, 448)
+
+
 class FrameRunner:
     def __init__(self):
         self._auto_cycle_times = [
@@ -39,16 +35,14 @@ class FrameRunner:
             datetime.time(hour=15),
         ]
         self._storage_dir = Path(os.environ["HOME"]) / "Pictures" / "frame"
-        self._raw_dir = self._storage_dir / "raw"
-        self._processed_dir = self._storage_dir / "processed"
+        self._camera_save_dir = self._storage_dir / "camera_images"
         self._show_dir = self._storage_dir / "show"
 
-        self._placeholder_image = self._processed_dir / "placeholder.jpg"
+        self._placeholder_image = self._storage_dir / "placeholder.jpg"
 
         for path in (
             self._storage_dir,
-            self._raw_dir,
-            self._processed_dir,
+            self._camera_save_dir,
             self._show_dir,
         ):
             path.mkdir(parents=True, exist_ok=True)
@@ -57,6 +51,8 @@ class FrameRunner:
         self._inky.set_border(BLACK)
 
         self._last_show = datetime.datetime.now()
+
+        self._known_images: Dict[Path, bool] = {}
 
         self._files: List[Path] = []
         self._refresh_file_list()
@@ -101,12 +97,76 @@ class FrameRunner:
 
     def _refresh_file_list(self):
         # sort by modification time
-        self._files = sorted(self._show_dir.glob("*.jpg"), key=lambda p: p.stat().st_mtime)
+        files = sorted(self._show_dir.glob("*.*"), key=lambda p: p.stat().st_mtime)
+
+        usable_files = []
+
+        for path in files:
+            if path in self._known_images:
+                is_ok = self._known_images[path]
+                if is_ok:
+                    usable_files.append(path)
+                continue
+
+            # try to open the image, skip on error
+            try:
+                image = Image.open(path)
+            except Exception as e:
+                print(f"Can't open {path} as an image, ignoring it")
+                print(f"Error was {type(e).__name__}: {e}")
+                self._known_images[path] = False
+                continue
+
+            try:
+                if image.size != SCREEN_RESOLUTION:
+                    print(f"Need to resize {path} - currently {image.size}")
+                    new_image = self._resize_image(image)
+                    # overwrite the old path
+                    new_image.save(path)
+            except Exception as e:
+                print("Something went wrong")
+                print(f"Error was {type(e).__name__}: {e}")
+                self._known_images[path] = False
+                continue
+
+            self._known_images[path] = True
+            usable_files.append(path)
+
+        self._files = usable_files
+
+    @staticmethod
+    def _resize_image(image):
+
+        image_w, image_h = image.size
+
+        if image_w < image_h:
+            image = image.rotate(270, expand=True)
+            print(f"Rotating, dimensions now {image.size}")
+
+        image_w, image_h = image.size
+
+        screen_w, screen_h = SCREEN_RESOLUTION
+
+        scale = min([screen_w / image_w, screen_h / image_h])
+        new_w = int(image_w * scale)
+        new_h = int(image_h * scale)
+
+        image = image.resize((new_w, new_h))
+
+        dx = (screen_w - new_w) // 2
+        dy = (screen_h - new_h) // 2
+
+        print(f"Scaling image to {new_w}, {new_h} with border {dx}, {dy}")
+
+        new_image = Image.new("RGB", SCREEN_RESOLUTION)
+        new_image.paste(image, (dx, dy))
+
+        return new_image
 
     def take_photo(self, delay=2):
         print("Taking photo")
         camera = PiCamera()
-        camera.resolution = (600, 448)
+        camera.resolution = SCREEN_RESOLUTION
         camera.rotation = 90
 
         camera.start_preview()
@@ -114,7 +174,7 @@ class FrameRunner:
 
         now = time.time()
         filename = f"{now}.jpg"
-        save_path = self._processed_dir / filename
+        save_path = self._camera_save_dir / filename
         show_path = self._show_dir / filename
 
         camera.capture(str(save_path))
@@ -163,7 +223,7 @@ class FrameRunner:
         to_delete.unlink()
 
     def undelete_all(self):
-        for file in self._processed_dir.glob("*.jpg"):
+        for file in self._camera_save_dir.glob("*.jpg"):
             show_path = self._show_dir / file.name
             show_path.symlink_to(file)
 
