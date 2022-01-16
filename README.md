@@ -17,7 +17,7 @@ the buttons are labelled A, B, C, D.
 #### Short press - hold for less than 1 second:
 - A: Previous image
 - B: Take a new photo
-- C: [No action]
+- C: Flip image 180 degrees
 - D: Next image
 
 #### Long press - hold for more than 1 second, but less than 5 seconds:

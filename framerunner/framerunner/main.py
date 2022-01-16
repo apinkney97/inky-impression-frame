@@ -227,6 +227,12 @@ class FrameRunner:
             show_path = self._show_dir / file.name
             show_path.symlink_to(file)
 
+    def flip_current_image(self):
+        image = Image.open(self._current_photo)
+        image = image.rotate(180)
+        image.save(self._current_photo)
+        self.show_photo()
+
 
 async def button_loop(bm: ButtonManager, fr: FrameRunner):
     long_press_secs = 1
@@ -257,7 +263,9 @@ async def button_loop(bm: ButtonManager, fr: FrameRunner):
             elif is_long_long:
                 shutdown()  # SHUT DOWN
         elif event.button is Button.C:
-            if is_long:
+            if is_short:
+                fr.flip_current_image()  # FLIP IMAGE 180
+            elif is_long:
                 fr.delete_current_photo()  # DELETE PHOTO
             elif is_long_long:
                 fr.undelete_all()  # UNDELETE ALL
